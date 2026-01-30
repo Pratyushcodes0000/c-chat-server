@@ -27,6 +27,7 @@ void remove_client(int dead_fd) {
   for (auto it = clients.begin(); it != clients.end();) {
 
     if (it->fd == dead_fd) {
+      close(it->fd);
       clients.erase(it);
       break;
     } else {
@@ -61,7 +62,7 @@ int main() {
   int epoll_fd = epoll_create1(0);
   epoll_event ev;
   ev.events = EPOLLIN;
-  ev.data.fd = epoll_fd;
+  ev.data.fd = server_fd;
 
   epoll_ctl(epoll_fd, EPOLL_CTL_ADD, server_fd, &ev);
 
@@ -76,14 +77,16 @@ int main() {
       if (fd == server_fd) {
         int client_fd = accept(fd, nullptr, nullptr);
         set_nonblocking(client_fd);
-
+        
         epoll_event client_ev{};
-        ev.events = EPOLLIN;
-        ev.data.fd = client_fd;
+        client_ev.events = EPOLLIN;
+        client_ev.data.fd = client_fd;
 
         epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &client_ev);
 
         clients.push_back({client_fd,""});
+
+        std::cout << "New client connected: " << client_fd << std::endl;
         
       } else {
         char buffer[1024];
@@ -103,7 +106,9 @@ int main() {
                 broadcast(msg,fd);
               }
               break;
-            }else if (bytes == 0) {
+            }
+        }
+        }else if (bytes == 0) {
               std::cout << "Client disconnected ... removing from queue "
                     << std::endl;
               remove_client(fd);
@@ -113,8 +118,6 @@ int main() {
             std::cout << "Client error:"<<fd<<std::endl;
             remove_client(fd);
           }
-        }
-        }
           
         }
       }
