@@ -1,4 +1,5 @@
 #include <arpa/inet.h>
+#include <unordered_map>
 #include <cstdint>
 #include <fcntl.h>
 #include <iostream>
@@ -10,12 +11,19 @@
 #include <string>
 #include <errno.h>
 
-constexpr uint16_t PORT = 8080;
+constexpr uint16_t PORT = 8000;
 constexpr uint16_t MAX_EVENT = 1000;
+std::string WELCOME_MSG = "Welcome to the c/c++ chat server ";
+
+std::unordered_map<int , std::string> commands = {
+{1,"NICK"},//set nickname
+{2,"/BROADCAST"}//send msg to everyone active
+};
 
 struct Client {
   int fd;
   std::string buffer;
+  std::string username;
 };
 
 std::vector<Client> clients;
@@ -44,6 +52,17 @@ void remove_client(int dead_fd) {
   }
 }
 
+//setting username
+bool set_username(int client_fd , std::string username){
+for(auto &client : clients){
+  if(client.fd == client_fd){
+    client.username = username;
+    return true;
+  }
+}
+return false;
+}
+
 void broadcast(const std::string& msg, int fd) {
   for (auto &client : clients) {
     if (client.fd != fd) {
@@ -53,6 +72,30 @@ void broadcast(const std::string& msg, int fd) {
       }
     }
   }
+}
+
+void check_for_command(Client &client){
+size_t pos ;
+while((pos = client.buffer.find('\n')) != std::string::npos){
+  std::string line = client.buffer.substr(0,pos);
+  client.buffer.erase(0,pos+1);
+
+  //splitting
+  size_t space = line.find(' ');
+  if(space == std::string::npos) return;
+
+  std::string comm = line.substr(0,space);
+  std::string arg = line.substr(space+1);
+    if (comm == "NICK"){
+       client.username = arg;
+       std::cout << "[CMD] Set username to: " << arg << std::endl;
+    }else if(comm == "/BROADCAST"){
+      std::string msg = client.username + ": " + arg + "\n";
+      broadcast(msg, client.fd);
+    }
+    
+  
+}
 }
 
 int main() {
@@ -133,9 +176,9 @@ int main() {
           continue;
         }
 
-        clients.push_back({client_fd, ""});
+        clients.push_back({client_fd, "" , ""});
         std::cout << "[INFO] New client connected fd=" << client_fd << std::endl;
-
+        send(client_fd,WELCOME_MSG.c_str(),sizeof WELCOME_MSG,0);
       } else {
         char buffer[1024];
         int bytes = recv(fd, buffer, sizeof buffer, 0);
@@ -147,15 +190,7 @@ int main() {
             if (client.fd == fd) {
               client.buffer.append(buffer, bytes);
 
-              size_t pos;
-              while ((pos = client.buffer.find('\n')) != std::string::npos) {
-                std::string msg = client.buffer.substr(0, pos + 1);
-                client.buffer.erase(0, pos + 1);
-
-                std::cout << "[MSG] " << msg;
-                broadcast(msg, fd);
-              }
-              break;
+              check_for_command(client);
             }
           }
 
