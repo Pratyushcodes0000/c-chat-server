@@ -1,0 +1,16 @@
+📖 HELP MENU
+
+User Commands:
+  /nick <name>        - Set your username
+  /users             - List connected users
+  /help              - Show this help
+
+Messaging:
+  /broadcast <msg>   - Send message to everyone
+  /msg <user> <msg>  - Private message
+
+Room:
+  /create_room       - Create a room
+  /join_room         - Join a room 
+  
+----------------------------------

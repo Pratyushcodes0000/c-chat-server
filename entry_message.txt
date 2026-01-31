@@ -1,0 +1,24 @@
+==================================================
+        [ C/C++ CHAT SERVER v1.0 ]
+==================================================
+
+----------------------------------
+ Welcome, Operator.
+
+ This server is now under your control.
+----------------------------------
+
+ Available Commands:
+   /username <username>     -> Set your identity
+   /help                    -> Show command list
+   /users                   -> List connected users
+   /msg <user> <msg>        -> Private message
+   /broadcast <msg>         -> Message all users
+   /create_room             -> create a room
+   /join_room               -> join a room
+   
+-----------------------------------
+
+ Type /help to begin your session.
+
+==================================================

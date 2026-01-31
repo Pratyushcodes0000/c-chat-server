@@ -10,16 +10,10 @@
 #include <vector>
 #include <string>
 #include <errno.h>
+#include <fstream>
 
 constexpr uint16_t PORT = 8000;
 constexpr uint16_t MAX_EVENT = 1000;
-std::string WELCOME_MSG = "Welcome to the c/c++ chat server";
-
-std::unordered_map<int , std::string> commands = {
-{1,"NICK"},//set nickname
-{2,"/BROADCAST"},//send msg to everyone active
-{3,"/USERS"} // return all the active user number 
-};
 
 struct Client {
   int fd;
@@ -38,6 +32,28 @@ void set_nonblocking(int fd) {
   if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
     perror("fcntl(F_SETFL)");
   }
+}
+
+std::string read_help_file(){
+  std::ifstream file("help.txt");
+  if(!file.is_open()){
+    std::cerr << "Error opening file!" << std::endl;
+    return "";
+  }
+  std::string help_content((std::istreambuf_iterator<char>(file)),std::istreambuf_iterator<char>());
+  file.close();
+  return help_content;
+}
+
+std::string read_entry_message(){
+  std::ifstream file("entry_message.txt");
+  if(!file.is_open()){
+    std::cerr << "Error opening file" << std::endl;
+    return "";
+  }
+  std::string help_content((std::istreambuf_iterator<char>(file)),std::istreambuf_iterator<char>());
+  file.close();
+  return help_content;
 }
 
 void remove_client(int dead_fd) {
@@ -75,6 +91,24 @@ void broadcast(const std::string& msg, int fd) {
   }
 }
 
+void private_broadcast(std::string& username,std::string& message,int sender_fd){
+  bool found = false;
+  //finding user to send the message
+  for(auto& c : clients){
+    if(c.username == username){
+      send(c.fd,message.c_str(),message.size(),0);
+      found = true;
+      break;
+    }
+  }
+  //if user with username not found
+  if(!found){
+  std::string error_msg = "No user with that username found\n";
+  send(sender_fd,error_msg.c_str(),error_msg.size(),0);
+  }
+
+}
+
 void check_for_command(Client &client){
 size_t pos ;
 while((pos = client.buffer.find('\n')) != std::string::npos){
@@ -86,22 +120,29 @@ while((pos = client.buffer.find('\n')) != std::string::npos){
   if(space == std::string::npos) return;
 
   std::string comm = line.substr(0,space);
-  std::string arg = line.substr(space+1);
-    if (comm == "NICK"){
+    if (comm == "/username"){
+      std::string arg = line.substr(space+1);
        client.username = arg;
        std::cout << "[CMD] Set username to: " << arg << std::endl;
-    }else if(comm == "/BROADCAST"){
+    }else if(comm == "/broadcast"){
+      std::string arg = line.substr(space+1);
       std::string msg = client.username + ": " + arg + "\n";
       broadcast(msg, client.fd);
-    }else if(comm == "/USERS"){
+    }else if(comm == "/users"){
       std::string msg = "Users Connected: " + std::to_string(clients.size()) + "\n";
       send(client.fd ,msg.c_str(),msg.size(),0);
+    }else if(comm == "/help"){
+      std::string content = read_help_file();
+      send(client.fd,content.c_str(),content.size(),0);
+    }else if(comm == "/msg"){
+     size_t user_to_send = line.find(' ',space+1);
+     if(user_to_send == std::string::npos) return;
+     std::string username = line.substr(space+1,user_to_send-space-1);
+     std::string msg = line.substr(user_to_send+1);
+     std::string message = client.username + ": " + msg + "\n";
+     private_broadcast(username,message,client.fd);
     }
 }
-}
-
-void private_msg(){
-  
 }
 
 int main() {
@@ -184,7 +225,8 @@ int main() {
 
         clients.push_back({client_fd, "" , ""});
         std::cout << "[INFO] New client connected fd=" << client_fd << std::endl;
-        send(client_fd,WELCOME_MSG.c_str(),sizeof WELCOME_MSG,0);
+        std::string WELCOME_MSG = read_entry_message();
+        send(client_fd,WELCOME_MSG.c_str(),WELCOME_MSG.size(),0);
       } else {
         char buffer[1024];
         int bytes = recv(fd, buffer, sizeof buffer, 0);
@@ -195,7 +237,6 @@ int main() {
           for (auto &client : clients) {
             if (client.fd == fd) {
               client.buffer.append(buffer, bytes);
-
               check_for_command(client);
             }
           }
