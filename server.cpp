@@ -13,11 +13,12 @@
 
 constexpr uint16_t PORT = 8000;
 constexpr uint16_t MAX_EVENT = 1000;
-std::string WELCOME_MSG = "Welcome to the c/c++ chat server ";
+std::string WELCOME_MSG = "Welcome to the c/c++ chat server";
 
 std::unordered_map<int , std::string> commands = {
 {1,"NICK"},//set nickname
-{2,"/BROADCAST"}//send msg to everyone active
+{2,"/BROADCAST"},//send msg to everyone active
+{3,"/USERS"} // return all the active user number 
 };
 
 struct Client {
@@ -92,10 +93,15 @@ while((pos = client.buffer.find('\n')) != std::string::npos){
     }else if(comm == "/BROADCAST"){
       std::string msg = client.username + ": " + arg + "\n";
       broadcast(msg, client.fd);
+    }else if(comm == "/USERS"){
+      std::string msg = "Users Connected: " + std::to_string(clients.size()) + "\n";
+      send(client.fd ,msg.c_str(),msg.size(),0);
     }
-    
-  
 }
+}
+
+void private_msg(){
+  
 }
 
 int main() {
@@ -123,7 +129,7 @@ int main() {
     return 1;
   }
 
-  std::cout << "[INFO] Server started on port 8080\n";
+  std::cout << "[INFO] Server started on port\n" << PORT << std::endl;
 
   int epoll_fd = epoll_create1(0);
   if (epoll_fd == -1) {
